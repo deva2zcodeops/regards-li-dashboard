@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { format } from 'date-fns';
 
 import { apiFetch } from '../utils/apiFetch.js';
@@ -10,24 +10,52 @@ const STATUS_CONFIG = {
   pending: { color: 'var(--text-muted)', symbol: '◌', pulse: false },
 };
 
-export function JobsSidebar({ selectedJobId, onSelectJob, range, statusFilter, search }) {
-  const [jobs, setJobs] = useState([]);
+const LIMIT = 15;
 
-  const fetchJobs = useCallback(async () => {
+export function JobsSidebar({ selectedJobId, onSelectJob, range, statusFilter, search }) {
+  const [jobs, setJobs]         = useState([]);
+  const [page, setPage]         = useState(1);
+  const [hasMore, setHasMore]   = useState(true);
+  const [loading, setLoading]   = useState(false);
+  const scrollRef               = useRef(null);
+
+  const fetchJobs = useCallback(async (targetPage, replace = false) => {
+    if (loading) return;
+    setLoading(true);
     try {
-      const res = await apiFetch(`/api/jobs?range=${range}`);
+      const params = new URLSearchParams({ range, page: String(targetPage), limit: String(LIMIT) });
+      const res  = await apiFetch(`/api/jobs?${params}`);
       const data = await res.json();
-      setJobs(data.jobs || []);
+      const incoming = data.jobs || [];
+      setJobs((prev) => replace ? incoming : [...prev, ...incoming]);
+      setPage(targetPage);
+      setHasMore(targetPage < (data.pages || 1));
     } catch (err) {
       console.error('[JobsSidebar] fetch error:', err);
+    } finally {
+      setLoading(false);
     }
+  }, [range, loading]);
+
+  // Reset on range change
+  useEffect(() => {
+    setJobs([]);
+    setPage(1);
+    setHasMore(true);
+    fetchJobs(1, true);
+    const interval = setInterval(() => fetchJobs(1, true), 15_000);
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [range]);
 
-  useEffect(() => {
-    fetchJobs();
-    const interval = setInterval(fetchJobs, 15_000);
-    return () => clearInterval(interval);
-  }, [fetchJobs]);
+  // Infinite scroll
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el || loading || !hasMore) return;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 40) {
+      fetchJobs(page + 1);
+    }
+  }, [loading, hasMore, page, fetchJobs]);
 
   const visibleJobs = jobs.filter((job) => {
     if (statusFilter && statusFilter !== 'ALL' && job.status !== statusFilter) return false;
@@ -67,8 +95,8 @@ export function JobsSidebar({ selectedJobId, onSelectJob, range, statusFilter, s
       </div>
 
       {/* Job list */}
-      <div style={{ flex: 1, overflowY: 'auto' }}>
-        {visibleJobs.length === 0 && (
+      <div ref={scrollRef} onScroll={handleScroll} style={{ flex: 1, overflowY: 'auto' }}>
+        {visibleJobs.length === 0 && !loading && (
           <div style={{ padding: 16, color: 'var(--text-muted)', fontSize: 11, textAlign: 'center' }}>
             NO JOBS FOUND
           </div>
@@ -128,6 +156,16 @@ export function JobsSidebar({ selectedJobId, onSelectJob, range, statusFilter, s
             </div>
           );
         })}
+        {loading && (
+          <div style={{ padding: '10px 16px', color: 'var(--text-muted)', fontSize: 10, textAlign: 'center', letterSpacing: 1 }}>
+            LOADING...
+          </div>
+        )}
+        {!loading && !hasMore && jobs.length > 0 && (
+          <div style={{ padding: '10px 16px', color: 'var(--text-muted)', fontSize: 10, textAlign: 'center', letterSpacing: 1, opacity: 0.5 }}>
+            END
+          </div>
+        )}
       </div>
     </div>
   );
