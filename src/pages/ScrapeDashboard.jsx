@@ -388,7 +388,7 @@ export function ScrapeDashboard() {
 
   return (
     <div style={{
-      flex: 1, display: 'flex', flexDirection: 'column',
+      flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column',
       overflowY: 'auto', padding: '20px 24px', gap: 20,
     }}>
 

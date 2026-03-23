@@ -236,6 +236,7 @@ export function AppDashboard() {
   return (
     <div style={{
       flex: 1,
+      minHeight: 0,
       overflowY: 'auto',
       padding: '20px 24px',
       display: 'flex',
