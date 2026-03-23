@@ -170,7 +170,7 @@ export function AppDashboard() {
       const params = new URLSearchParams({
         range,
         page:  String(targetPage),
-        limit: '20',
+        limit: '10',
         sort,
         order,
       });
