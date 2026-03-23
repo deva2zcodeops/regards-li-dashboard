@@ -1,0 +1,9 @@
+services:
+
+  dashboard:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://localhost:3002
