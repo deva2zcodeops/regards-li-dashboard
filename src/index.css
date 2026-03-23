@@ -1,0 +1,73 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg:         #08090d;
+  --surface:    #0e1018;
+  --surface-2:  #161923;
+  --surface-3:  #1e2235;
+  --border:     #1e2235;
+  --text:       #c8d4e8;
+  --text-muted: #3d4a63;
+  --text-dim:   #6b7a99;
+  --green:      #00e676;
+  --green-dim:  rgba(0, 230, 118, 0.12);
+  --amber:      #ffab00;
+  --amber-dim:  rgba(255, 171, 0, 0.12);
+  --red:        #ff5252;
+  --red-dim:    rgba(255, 82, 82, 0.12);
+  --blue:       #448aff;
+  --sidebar-width: 256px;
+  --header-height: 46px;
+}
+
+html, body, #root {
+  height: 100%;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 12px;
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+input, select {
+  font-family: inherit;
+  font-size: 11px;
+}
+
+select option {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.85); }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}

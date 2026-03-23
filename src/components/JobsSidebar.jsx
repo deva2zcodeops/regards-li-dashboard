@@ -1,0 +1,134 @@
+import React, { useEffect, useState, useCallback } from 'react';
+import { format } from 'date-fns';
+
+import { apiFetch } from '../utils/apiFetch.js';
+
+const STATUS_CONFIG = {
+  running: { color: 'var(--green)',      symbol: '◉', pulse: true  },
+  done:    { color: 'var(--green)',      symbol: '✓', pulse: false },
+  failed:  { color: 'var(--red)',        symbol: '✕', pulse: false },
+  pending: { color: 'var(--text-muted)', symbol: '◌', pulse: false },
+};
+
+export function JobsSidebar({ selectedJobId, onSelectJob, range, statusFilter, search }) {
+  const [jobs, setJobs] = useState([]);
+
+  const fetchJobs = useCallback(async () => {
+    try {
+      const res = await apiFetch(`/api/jobs?range=${range}`);
+      const data = await res.json();
+      setJobs(data.jobs || []);
+    } catch (err) {
+      console.error('[JobsSidebar] fetch error:', err);
+    }
+  }, [range]);
+
+  useEffect(() => {
+    fetchJobs();
+    const interval = setInterval(fetchJobs, 15_000);
+    return () => clearInterval(interval);
+  }, [fetchJobs]);
+
+  const visibleJobs = jobs.filter((job) => {
+    if (statusFilter && statusFilter !== 'ALL' && job.status !== statusFilter) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      if (!job.job_id?.toLowerCase().includes(q) && !job.user_id?.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+
+  useEffect(() => {
+    if (selectedJobId && !visibleJobs.find((j) => j.job_id === selectedJobId)) {
+      onSelectJob('');
+    }
+  }, [visibleJobs, selectedJobId, onSelectJob]);
+
+  return (
+    <div style={{
+      width: 'var(--sidebar-width)',
+      minWidth: 'var(--sidebar-width)',
+      borderRight: '1px solid var(--border)',
+      background: 'var(--surface)',
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden',
+    }}>
+
+      {/* Section label */}
+      <div style={{
+        padding: '8px 16px 6px',
+        color: 'var(--text-muted)',
+        fontSize: 10,
+        letterSpacing: 1.5,
+        borderBottom: '1px solid var(--border)',
+      }}>
+        ACTIVE JOBS
+      </div>
+
+      {/* Job list */}
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        {visibleJobs.length === 0 && (
+          <div style={{ padding: 16, color: 'var(--text-muted)', fontSize: 11, textAlign: 'center' }}>
+            NO JOBS FOUND
+          </div>
+        )}
+        {visibleJobs.map((job) => {
+          const cfg = STATUS_CONFIG[job.status] || STATUS_CONFIG.pending;
+          const isSelected = job.job_id === selectedJobId;
+          const shortId = `job_${job.job_id.slice(0, 8)}...`;
+
+          return (
+            <div
+              key={job.job_id}
+              onClick={() => onSelectJob(isSelected ? '' : job.job_id)}
+              style={{
+                padding: '10px 16px',
+                borderBottom: '1px solid var(--border)',
+                background: isSelected ? 'var(--surface-3)' : 'transparent',
+                borderLeft: isSelected ? '2px solid var(--green)' : '2px solid transparent',
+                cursor: 'pointer',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text)', fontSize: 12, letterSpacing: 0.5 }}>
+                  {shortId}
+                </span>
+                <span style={{
+                  color: cfg.color,
+                  fontSize: 14,
+                  lineHeight: 1,
+                  animation: cfg.pulse ? 'pulse-dot 1.4s ease-in-out infinite' : 'none',
+                }}>
+                  {cfg.symbol}
+                </span>
+              </div>
+
+              <div style={{
+                marginTop: 3,
+                fontSize: 10,
+                letterSpacing: 0.5,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}>
+                <span style={{ color: 'var(--text-dim)' }}>{job.user_id?.toUpperCase()}</span>
+                {job.created_at && (
+                  <span style={{ color: 'var(--text-muted)' }}>
+                    {format(new Date(job.created_at), 'HH:mm')}
+                  </span>
+                )}
+              </div>
+
+              {job.progress > 0 && (
+                <div style={{ marginTop: 4, color: 'var(--green)', fontSize: 10, opacity: 0.7 }}>
+                  {job.progress} connections
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
