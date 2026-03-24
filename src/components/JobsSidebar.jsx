@@ -24,6 +24,7 @@ export function JobsSidebar({ selectedJobId, onSelectJob, range, statusFilter, s
     setLoading(true);
     try {
       const params = new URLSearchParams({ range, page: String(targetPage), limit: String(LIMIT) });
+      if (search && search.trim()) params.set('search', search.trim());
       const res  = await apiFetch(`/api/jobs?${params}`);
       const data = await res.json();
       const incoming = data.jobs || [];
@@ -35,18 +36,21 @@ export function JobsSidebar({ selectedJobId, onSelectJob, range, statusFilter, s
     } finally {
       setLoading(false);
     }
-  }, [range, loading]);
+  }, [range, search, loading]);
 
-  // Reset on range change
+  // Reset on range or search change
   useEffect(() => {
     setJobs([]);
     setPage(1);
     setHasMore(true);
     fetchJobs(1, true);
-    const interval = setInterval(() => fetchJobs(1, true), 15_000);
-    return () => clearInterval(interval);
+    // Only poll when not actively searching
+    if (!search) {
+      const interval = setInterval(() => fetchJobs(1, true), 15_000);
+      return () => clearInterval(interval);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [range]);
+  }, [range, search]);
 
   // Infinite scroll
   const handleScroll = useCallback(() => {
@@ -57,20 +61,15 @@ export function JobsSidebar({ selectedJobId, onSelectJob, range, statusFilter, s
     }
   }, [loading, hasMore, page, fetchJobs]);
 
-  const visibleJobs = jobs.filter((job) => {
-    if (statusFilter && statusFilter !== 'ALL' && job.status !== statusFilter) return false;
-    if (search) {
-      const q = search.toLowerCase();
-      if (!job.job_id?.toLowerCase().includes(q) && !job.user_id?.toLowerCase().includes(q)) return false;
-    }
-    return true;
-  });
+  const visibleJobs = statusFilter && statusFilter !== 'ALL'
+    ? jobs.filter((job) => job.status === statusFilter)
+    : jobs;
 
   useEffect(() => {
-    if (selectedJobId && !visibleJobs.find((j) => j.job_id === selectedJobId)) {
+    if (selectedJobId && !loading && jobs.length > 0 && !visibleJobs.find((j) => j.job_id === selectedJobId)) {
       onSelectJob('');
     }
-  }, [visibleJobs, selectedJobId, onSelectJob]);
+  }, [visibleJobs, selectedJobId, onSelectJob, loading, jobs.length]);
 
   return (
     <div style={{

@@ -132,7 +132,7 @@ function SortIcon({ col, sort, order }) {
 }
 
 // ─── Main Component ───────────────────────────────────────────
-export function AppDashboard() {
+export function AppDashboard({ onViewJobLogs }) {
   const [range, setRange]   = useState('7d');
   const [stats, setStats]   = useState(null);
   const [jobs,  setJobs]    = useState([]);
@@ -394,8 +394,27 @@ export function AppDashboard() {
                   onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-2)'}
                   onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                 >
-                  <td style={{ ...tdStyle, color: 'var(--text-dim)', fontFamily: 'monospace', fontSize: 10 }}>
-                    {job.job_id.slice(0, 8)}…
+                  <td style={{ ...tdStyle, fontFamily: 'monospace', fontSize: 10 }}>
+                    {onViewJobLogs ? (
+                      <span
+                        onClick={() => onViewJobLogs(job.job_id)}
+                        title={job.job_id}
+                        style={{
+                          color: 'var(--green)',
+                          cursor: 'pointer',
+                          textDecoration: 'underline',
+                          textUnderlineOffset: 3,
+                          textDecorationColor: 'var(--green)',
+                          opacity: 0.85,
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                        onMouseLeave={(e) => e.currentTarget.style.opacity = '0.85'}
+                      >
+                        {job.job_id.slice(0, 8)}…
+                      </span>
+                    ) : (
+                      <span style={{ color: 'var(--text-dim)' }}>{job.job_id.slice(0, 8)}…</span>
+                    )}
                   </td>
                   <td style={{ ...tdStyle, color: 'var(--text-dim)' }}>
                     {job.user_id || '—'}

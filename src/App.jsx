@@ -32,6 +32,11 @@ function Dashboard() {
     [updateFilter],
   );
 
+  const handleViewJobLogs = useCallback((jobId) => {
+    updateFilter('jobId', jobId);
+    setActivePage('LIVE LOGS');
+  }, [updateFilter]);
+
   function handleLogout() {
     localStorage.removeItem('auth_token');
     window.dispatchEvent(new Event('auth:logout'));
@@ -149,7 +154,7 @@ function Dashboard() {
         </div>
       ) : activePage === 'APP DASHBOARD' ? (
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-          <AppDashboard />
+          <AppDashboard onViewJobLogs={handleViewJobLogs} />
         </div>
       ) : activePage === 'GEO INTELLIGENCE' ? (
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
