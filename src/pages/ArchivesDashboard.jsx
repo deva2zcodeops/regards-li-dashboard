@@ -89,9 +89,10 @@ function ViewerModal({ archive, onClose }) {
           borderBottom:   '1px solid var(--border)',
           display:        'flex',
           alignItems:     'center',
-          gap:            12,
+          gap:            8,
           flexShrink:     0,
           background:     'var(--surface-2)',
+          flexWrap:       'wrap',
         }}>
           <span style={{ fontSize: 10, letterSpacing: 1.4, color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>
             VIEWING
@@ -194,7 +195,7 @@ function ViewerModal({ archive, onClose }) {
         </div>
 
         {/* Rows */}
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
           {loading && (
             <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 11 }}>
               LOADING...
@@ -328,7 +329,7 @@ export function ArchivesDashboard() {
     }}>
 
       {/* ── Header ── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
         <span style={{ fontSize: 11, letterSpacing: 1.6, color: 'var(--text-dim)', fontWeight: 600 }}>
           LOG ARCHIVES
         </span>

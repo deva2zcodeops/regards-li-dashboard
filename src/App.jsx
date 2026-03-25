@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useLogs } from './hooks/useLogs.js';
+import { useIsMobile } from './hooks/useIsMobile.js';
 import { JobsSidebar } from './components/JobsSidebar.jsx';
 import { LogFilters } from './components/LogFilters.jsx';
 import { LogStream } from './components/LogStream.jsx';
@@ -24,7 +25,10 @@ const NAV_ITEMS = [
 
 function Dashboard() {
   const navigate = useNavigate();
-  const location = useLocation(); // used for active nav highlight
+  const location = useLocation();
+  const isMobile = useIsMobile();
+  const [mobileMenuOpen, setMobileMenuOpen]     = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   const {
     logs,
@@ -39,8 +43,11 @@ function Dashboard() {
   } = useLogs();
 
   const handleSelectJob = useCallback(
-    (jobId) => updateFilter('jobId', jobId),
-    [updateFilter],
+    (jobId) => {
+      updateFilter('jobId', jobId);
+      if (isMobile) setMobileSidebarOpen(false);
+    },
+    [updateFilter, isMobile],
   );
 
   const handleViewJobLogs = useCallback((jobId) => {
@@ -53,6 +60,11 @@ function Dashboard() {
     window.dispatchEvent(new Event('auth:logout'));
   }
 
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
 
@@ -64,10 +76,12 @@ function Dashboard() {
         alignItems: 'center',
         borderBottom: '1px solid var(--border)',
         background: 'var(--surface)',
-        paddingLeft: 20,
-        paddingRight: 20,
-        gap: 36,
+        paddingLeft: isMobile ? 14 : 20,
+        paddingRight: isMobile ? 14 : 20,
+        gap: isMobile ? 0 : 36,
         flexShrink: 0,
+        position: 'relative',
+        zIndex: 100,
       }}>
         {/* Brand */}
         <span style={{
@@ -80,8 +94,100 @@ function Dashboard() {
           LI_SCRAPER
         </span>
 
-        {/* Nav tabs */}
-        <nav style={{ display: 'flex', gap: 28, alignItems: 'center', height: '100%', flex: 1 }}>
+        {isMobile ? (
+          /* Mobile: hamburger button */
+          <button
+            onClick={() => setMobileMenuOpen((v) => !v)}
+            style={{
+              marginLeft: 'auto',
+              background: 'transparent',
+              border: '1px solid var(--border)',
+              borderRadius: 3,
+              color: mobileMenuOpen ? 'var(--green)' : 'var(--text-dim)',
+              fontSize: 15,
+              width: 34,
+              height: 28,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              lineHeight: 1,
+              fontFamily: 'inherit',
+            }}
+            aria-label="Toggle navigation"
+          >
+            {mobileMenuOpen ? '✕' : '☰'}
+          </button>
+        ) : (
+          <>
+            {/* Desktop: Nav tabs */}
+            <nav style={{ display: 'flex', gap: 28, alignItems: 'center', height: '100%', flex: 1 }}>
+              {NAV_ITEMS.map(({ label, path }) => {
+                const active = path === '/'
+                  ? location.pathname === '/'
+                  : location.pathname.startsWith(path);
+                return (
+                  <NavLink
+                    key={path}
+                    to={path}
+                    style={{
+                      fontSize: 11,
+                      letterSpacing: 1.2,
+                      fontWeight: active ? 600 : 400,
+                      color: active ? 'var(--green)' : 'var(--text-dim)',
+                      cursor: 'pointer',
+                      height: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      borderBottom: active ? '2px solid var(--green)' : '2px solid transparent',
+                      paddingTop: 2,
+                      whiteSpace: 'nowrap',
+                      userSelect: 'none',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    {label}
+                  </NavLink>
+                );
+              })}
+            </nav>
+
+            {/* Logout */}
+            <button
+              onClick={handleLogout}
+              style={{
+                background: 'transparent',
+                border: '1px solid var(--border)',
+                borderRadius: 3,
+                color: 'var(--text-muted)',
+                fontSize: 10,
+                letterSpacing: 1.2,
+                padding: '5px 12px',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              LOGOUT
+            </button>
+          </>
+        )}
+      </header>
+
+      {/* ── Mobile nav dropdown ── */}
+      {isMobile && mobileMenuOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 'var(--header-height)',
+          left: 0,
+          right: 0,
+          zIndex: 99,
+          background: 'var(--surface)',
+          borderBottom: '1px solid var(--border)',
+          display: 'flex',
+          flexDirection: 'column',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+        }}>
           {NAV_ITEMS.map(({ label, path }) => {
             const active = path === '/'
               ? location.pathname === '/'
@@ -90,47 +196,41 @@ function Dashboard() {
               <NavLink
                 key={path}
                 to={path}
+                onClick={() => setMobileMenuOpen(false)}
                 style={{
+                  display: 'block',
+                  padding: '13px 20px',
                   fontSize: 11,
-                  letterSpacing: 1.2,
-                  fontWeight: active ? 600 : 400,
+                  letterSpacing: 1.4,
+                  fontWeight: active ? 700 : 400,
                   color: active ? 'var(--green)' : 'var(--text-dim)',
-                  cursor: 'pointer',
-                  height: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  borderBottom: active ? '2px solid var(--green)' : '2px solid transparent',
-                  paddingTop: 2,
-                  whiteSpace: 'nowrap',
-                  userSelect: 'none',
+                  borderLeft: active ? '3px solid var(--green)' : '3px solid transparent',
                   textDecoration: 'none',
+                  borderBottom: '1px solid var(--border)',
                 }}
               >
                 {label}
               </NavLink>
             );
           })}
-        </nav>
-
-        {/* Logout */}
-        <button
-          onClick={handleLogout}
-          style={{
-            background: 'transparent',
-            border: '1px solid var(--border)',
-            borderRadius: 3,
-            color: 'var(--text-muted)',
-            fontSize: 10,
-            letterSpacing: 1.2,
-            padding: '5px 12px',
-            cursor: 'pointer',
-            fontFamily: 'inherit',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          LOGOUT
-        </button>
-      </header>
+          <button
+            onClick={() => { setMobileMenuOpen(false); handleLogout(); }}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              padding: '13px 20px',
+              textAlign: 'left',
+              fontSize: 11,
+              letterSpacing: 1.4,
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+            }}
+          >
+            LOGOUT
+          </button>
+        </div>
+      )}
 
       {/* ── Body ── */}
       <Routes>
@@ -138,7 +238,7 @@ function Dashboard() {
           <div style={{
             flex: 1,
             display: 'grid',
-            gridTemplateColumns: 'var(--sidebar-width) 1fr',
+            gridTemplateColumns: isMobile ? '1fr' : 'var(--sidebar-width) 1fr',
             overflow: 'hidden',
             minHeight: 0,
           }}>
@@ -148,6 +248,9 @@ function Dashboard() {
               range={filters.range}
               statusFilter={filters.level}
               search={filters.search}
+              isMobile={isMobile}
+              mobileOpen={mobileSidebarOpen}
+              onMobileClose={() => setMobileSidebarOpen(false)}
             />
             <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
               <LogFilters
@@ -155,6 +258,7 @@ function Dashboard() {
                 onFilter={updateFilter}
                 liveMode={liveMode}
                 onToggleLive={toggleLive}
+                onShowJobs={isMobile ? () => setMobileSidebarOpen(true) : undefined}
               />
               <LogStream
                 logs={logs}

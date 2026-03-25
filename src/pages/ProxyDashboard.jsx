@@ -358,7 +358,7 @@ export function ProxyDashboard() {
     }}>
 
       {/* Title + range */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, flexWrap: 'wrap', gap: 8 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <span style={{ fontSize: 11, letterSpacing: 2, color: 'var(--text)', fontWeight: 700 }}>
             PROXY PERFORMANCE

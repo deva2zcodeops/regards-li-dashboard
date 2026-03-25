@@ -71,3 +71,18 @@ select option {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
 }
+
+/* ── Responsive helpers ────────────────────────────────────── */
+
+/* Reduce dashboard page padding on small screens */
+@media (max-width: 767px) {
+  /* Prevent horizontal overflow on the root */
+  html, body, #root {
+    overflow-x: hidden;
+  }
+
+  /* Tighten padding inside scrollable dashboard containers */
+  .dashboard-page {
+    padding: 14px 12px !important;
+  }
+}

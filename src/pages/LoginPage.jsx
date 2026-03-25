@@ -39,9 +39,11 @@ export function LoginPage({ onLogin }) {
       alignItems: 'center',
       justifyContent: 'center',
       background: 'var(--bg)',
+      padding: '16px',
     }}>
       <div style={{
-        width: 340,
+        width: '100%',
+        maxWidth: 340,
         background: 'var(--surface)',
         border: '1px solid var(--border)',
         borderRadius: 6,

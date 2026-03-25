@@ -200,6 +200,7 @@ function WorldMap({ points, total }) {
       {/* Stats bar */}
       <div style={{
         display: 'flex',
+        flexWrap: 'wrap',
         gap: 0,
         borderTop: '1px solid var(--border)',
         background: 'rgba(8,9,13,0.9)',
@@ -380,7 +381,7 @@ export function GeoDashboard() {
     }}>
 
       {/* Title + range */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, flexWrap: 'wrap', gap: 8 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <span style={{ fontSize: 11, letterSpacing: 2, color: 'var(--text)', fontWeight: 700 }}>
             GEO INTELLIGENCE

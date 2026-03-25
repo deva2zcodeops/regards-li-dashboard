@@ -245,7 +245,7 @@ export function AppDashboard({ onViewJobLogs }) {
     }}>
 
       {/* ── Header row ── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
         <span style={{
           fontSize: 11,
           letterSpacing: 1.6,
