@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useLogs } from './hooks/useLogs.js';
 import { JobsSidebar } from './components/JobsSidebar.jsx';
 import { LogFilters } from './components/LogFilters.jsx';
@@ -8,12 +9,22 @@ import { GeoDashboard } from './pages/GeoDashboard.jsx';
 import { ProxyDashboard } from './pages/ProxyDashboard.jsx';
 import { ErrorsDashboard } from './pages/ErrorsDashboard.jsx';
 import { ScrapeDashboard } from './pages/ScrapeDashboard.jsx';
+import { ArchivesDashboard } from './pages/ArchivesDashboard.jsx';
 import { LoginPage } from './pages/LoginPage.jsx';
 
-const NAV_ITEMS = ['LIVE LOGS', 'APP DASHBOARD', 'GEO INTELLIGENCE', 'PROXY PERFORMANCE', 'ERRORS', 'SCRAPE PERFORMANCE'];
+const NAV_ITEMS = [
+  { label: 'LIVE LOGS',          path: '/' },
+  { label: 'APP DASHBOARD',      path: '/app' },
+  { label: 'GEO INTELLIGENCE',   path: '/geo' },
+  { label: 'PROXY PERFORMANCE',  path: '/proxy' },
+  { label: 'ERRORS',             path: '/errors' },
+  { label: 'SCRAPE PERFORMANCE', path: '/scrape' },
+  { label: 'LOG ARCHIVES',       path: '/archives' },
+];
 
 function Dashboard() {
-  const [activePage, setActivePage] = useState('LIVE LOGS');
+  const navigate = useNavigate();
+  const location = useLocation(); // used for active nav highlight
 
   const {
     logs,
@@ -34,8 +45,8 @@ function Dashboard() {
 
   const handleViewJobLogs = useCallback((jobId) => {
     updateFilter('jobId', jobId);
-    setActivePage('LIVE LOGS');
-  }, [updateFilter]);
+    navigate('/');
+  }, [updateFilter, navigate]);
 
   function handleLogout() {
     localStorage.removeItem('auth_token');
@@ -71,12 +82,14 @@ function Dashboard() {
 
         {/* Nav tabs */}
         <nav style={{ display: 'flex', gap: 28, alignItems: 'center', height: '100%', flex: 1 }}>
-          {NAV_ITEMS.map((item) => {
-            const active = item === activePage;
+          {NAV_ITEMS.map(({ label, path }) => {
+            const active = path === '/'
+              ? location.pathname === '/'
+              : location.pathname.startsWith(path);
             return (
-              <span
-                key={item}
-                onClick={() => setActivePage(item)}
+              <NavLink
+                key={path}
+                to={path}
                 style={{
                   fontSize: 11,
                   letterSpacing: 1.2,
@@ -90,10 +103,11 @@ function Dashboard() {
                   paddingTop: 2,
                   whiteSpace: 'nowrap',
                   userSelect: 'none',
+                  textDecoration: 'none',
                 }}
               >
-                {item}
-              </span>
+                {label}
+              </NavLink>
             );
           })}
         </nav>
@@ -119,76 +133,48 @@ function Dashboard() {
       </header>
 
       {/* ── Body ── */}
-      {activePage === 'LIVE LOGS' ? (
-        <div style={{
-          flex: 1,
-          display: 'grid',
-          gridTemplateColumns: 'var(--sidebar-width) 1fr',
-          overflow: 'hidden',
-        }}>
-          <JobsSidebar
-            selectedJobId={filters.jobId}
-            onSelectJob={handleSelectJob}
-            range={filters.range}
-            statusFilter={filters.level}
-            search={filters.search}
-          />
-
-          <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <LogFilters
-              filters={filters}
-              onFilter={updateFilter}
-              liveMode={liveMode}
-              onToggleLive={toggleLive}
+      <Routes>
+        <Route path="/" element={
+          <div style={{
+            flex: 1,
+            display: 'grid',
+            gridTemplateColumns: 'var(--sidebar-width) 1fr',
+            overflow: 'hidden',
+            minHeight: 0,
+          }}>
+            <JobsSidebar
+              selectedJobId={filters.jobId}
+              onSelectJob={handleSelectJob}
+              range={filters.range}
+              statusFilter={filters.level}
+              search={filters.search}
             />
-            <LogStream
-              logs={logs}
-              liveMode={liveMode}
-              loading={loading}
-              page={page}
-              totalPages={totalPages}
-              onPageChange={goToPage}
-              jobId={filters.jobId}
-            />
+            <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <LogFilters
+                filters={filters}
+                onFilter={updateFilter}
+                liveMode={liveMode}
+                onToggleLive={toggleLive}
+              />
+              <LogStream
+                logs={logs}
+                liveMode={liveMode}
+                loading={loading}
+                page={page}
+                totalPages={totalPages}
+                onPageChange={goToPage}
+                jobId={filters.jobId}
+              />
+            </div>
           </div>
-        </div>
-      ) : activePage === 'APP DASHBOARD' ? (
-        <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-          <AppDashboard onViewJobLogs={handleViewJobLogs} />
-        </div>
-      ) : activePage === 'GEO INTELLIGENCE' ? (
-        <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-          <GeoDashboard />
-        </div>
-      ) : activePage === 'PROXY PERFORMANCE' ? (
-        <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-          <ProxyDashboard />
-        </div>
-      ) : activePage === 'ERRORS' ? (
-        <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-          <ErrorsDashboard />
-        </div>
-      ) : activePage === 'SCRAPE PERFORMANCE' ? (
-        <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-          <ScrapeDashboard />
-        </div>
-      ) : (
-        <div style={{
-          flex: 1,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexDirection: 'column',
-          gap: 10,
-        }}>
-          <span style={{ color: 'var(--text-muted)', fontSize: 11, letterSpacing: 1.4 }}>
-            {activePage}
-          </span>
-          <span style={{ color: 'var(--text-muted)', fontSize: 10, opacity: 0.5 }}>
-            COMING SOON
-          </span>
-        </div>
-      )}
+        } />
+        <Route path="/app"      element={<div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}><AppDashboard onViewJobLogs={handleViewJobLogs} /></div>} />
+        <Route path="/geo"      element={<div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}><GeoDashboard /></div>} />
+        <Route path="/proxy"    element={<div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}><ProxyDashboard /></div>} />
+        <Route path="/errors"   element={<div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}><ErrorsDashboard /></div>} />
+        <Route path="/scrape"   element={<div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}><ScrapeDashboard /></div>} />
+        <Route path="/archives" element={<div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}><ArchivesDashboard /></div>} />
+      </Routes>
     </div>
   );
 }
@@ -206,5 +192,9 @@ export default function App() {
     return <LoginPage onLogin={() => setAuthed(true)} />;
   }
 
-  return <Dashboard />;
+  return (
+    <BrowserRouter>
+      <Dashboard />
+    </BrowserRouter>
+  );
 }

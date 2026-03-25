@@ -142,7 +142,7 @@ export function JobsSidebar({ selectedJobId, onSelectJob, range, statusFilter, s
                 <span style={{ color: 'var(--text-dim)' }}>{job.user_id?.toUpperCase()}</span>
                 {job.created_at && (
                   <span style={{ color: 'var(--text-muted)' }}>
-                    {format(new Date(job.created_at), 'HH:mm')}
+                    {format(new Date(job.created_at), 'dd MMM, HH:mm')}
                   </span>
                 )}
               </div>
