@@ -1,17 +1,22 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { lazy, Suspense, useState, useCallback, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { useLogs } from './hooks/useLogs.js';
-import { useIsMobile } from './hooks/useIsMobile.js';
-import { JobsSidebar } from './components/JobsSidebar.jsx';
-import { LogFilters } from './components/LogFilters.jsx';
-import { LogStream } from './components/LogStream.jsx';
-import { AppDashboard } from './pages/AppDashboard.jsx';
-import { GeoDashboard } from './pages/GeoDashboard.jsx';
-import { ProxyDashboard } from './pages/ProxyDashboard.jsx';
-import { ErrorsDashboard } from './pages/ErrorsDashboard.jsx';
-import { ScrapeDashboard } from './pages/ScrapeDashboard.jsx';
-import { ArchivesDashboard } from './pages/ArchivesDashboard.jsx';
-import { LoginPage } from './pages/LoginPage.jsx';
+
+import { AuthProvider } from '@/context/AuthContext.jsx';
+import { useAuth } from '@/hooks/useAuth.js';
+import { useLogs } from '@/hooks/useLogs.js';
+import { useIsMobile } from '@/hooks/useIsMobile.js';
+import { JobsSidebar } from '@/components/JobsSidebar.jsx';
+import { LogFilters } from '@/components/LogFilters.jsx';
+import { LogStream } from '@/components/LogStream.jsx';
+import { LoginPage } from '@/pages/LoginPage.jsx';
+
+// Route-level code splitting — each dashboard loads only when first visited.
+const AppDashboard      = lazy(() => import('@/pages/AppDashboard.jsx').then((m) => ({ default: m.AppDashboard })));
+const GeoDashboard      = lazy(() => import('@/pages/GeoDashboard.jsx').then((m) => ({ default: m.GeoDashboard })));
+const ProxyDashboard    = lazy(() => import('@/pages/ProxyDashboard.jsx').then((m) => ({ default: m.ProxyDashboard })));
+const ErrorsDashboard   = lazy(() => import('@/pages/ErrorsDashboard.jsx').then((m) => ({ default: m.ErrorsDashboard })));
+const ScrapeDashboard   = lazy(() => import('@/pages/ScrapeDashboard.jsx').then((m) => ({ default: m.ScrapeDashboard })));
+const ArchivesDashboard = lazy(() => import('@/pages/ArchivesDashboard.jsx').then((m) => ({ default: m.ArchivesDashboard })));
 
 const NAV_ITEMS = [
   { label: 'LIVE LOGS',          path: '/' },
@@ -23,11 +28,28 @@ const NAV_ITEMS = [
   { label: 'LOG ARCHIVES',       path: '/archives' },
 ];
 
+function PageLoader() {
+  return (
+    <div style={{
+      flex: 1,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: 'var(--text-muted)',
+      fontSize: 10,
+      letterSpacing: 2,
+    }}>
+      LOADING...
+    </div>
+  );
+}
+
 function Dashboard() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { logout } = useAuth();
   const isMobile = useIsMobile();
-  const [mobileMenuOpen, setMobileMenuOpen]     = useState(false);
+  const [mobileMenuOpen,    setMobileMenuOpen]    = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   const {
@@ -40,6 +62,8 @@ function Dashboard() {
     totalPages,
     loading,
     goToPage,
+    wsConnected,
+    fetchError,
   } = useLogs();
 
   const handleSelectJob = useCallback(
@@ -54,11 +78,6 @@ function Dashboard() {
     updateFilter('jobId', jobId);
     navigate('/');
   }, [updateFilter, navigate]);
-
-  function handleLogout() {
-    localStorage.removeItem('auth_token');
-    window.dispatchEvent(new Event('auth:logout'));
-  }
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -83,7 +102,6 @@ function Dashboard() {
         position: 'relative',
         zIndex: 100,
       }}>
-        {/* Brand */}
         <span style={{
           color: 'var(--green)',
           fontWeight: 700,
@@ -95,9 +113,9 @@ function Dashboard() {
         </span>
 
         {isMobile ? (
-          /* Mobile: hamburger button */
           <button
             onClick={() => setMobileMenuOpen((v) => !v)}
+            aria-label="Toggle navigation"
             style={{
               marginLeft: 'auto',
               background: 'transparent',
@@ -114,13 +132,11 @@ function Dashboard() {
               lineHeight: 1,
               fontFamily: 'inherit',
             }}
-            aria-label="Toggle navigation"
           >
             {mobileMenuOpen ? '✕' : '☰'}
           </button>
         ) : (
           <>
-            {/* Desktop: Nav tabs */}
             <nav style={{ display: 'flex', gap: 28, alignItems: 'center', height: '100%', flex: 1 }}>
               {NAV_ITEMS.map(({ label, path }) => {
                 const active = path === '/'
@@ -152,9 +168,8 @@ function Dashboard() {
               })}
             </nav>
 
-            {/* Logout */}
             <button
-              onClick={handleLogout}
+              onClick={logout}
               style={{
                 background: 'transparent',
                 border: '1px solid var(--border)',
@@ -214,7 +229,7 @@ function Dashboard() {
             );
           })}
           <button
-            onClick={() => { setMobileMenuOpen(false); handleLogout(); }}
+            onClick={() => { setMobileMenuOpen(false); logout(); }}
             style={{
               background: 'transparent',
               border: 'none',
@@ -233,72 +248,74 @@ function Dashboard() {
       )}
 
       {/* ── Body ── */}
-      <Routes>
-        <Route path="/" element={
-          <div style={{
-            flex: 1,
-            display: 'grid',
-            gridTemplateColumns: isMobile ? '1fr' : 'var(--sidebar-width) 1fr',
-            overflow: 'hidden',
-            minHeight: 0,
-          }}>
-            <JobsSidebar
-              selectedJobId={filters.jobId}
-              onSelectJob={handleSelectJob}
-              range={filters.range}
-              statusFilter={filters.level}
-              search={filters.search}
-              isMobile={isMobile}
-              mobileOpen={mobileSidebarOpen}
-              onMobileClose={() => setMobileSidebarOpen(false)}
-            />
-            <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-              <LogFilters
-                filters={filters}
-                onFilter={updateFilter}
-                liveMode={liveMode}
-                onToggleLive={toggleLive}
-                onShowJobs={isMobile ? () => setMobileSidebarOpen(true) : undefined}
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route path="/" element={
+            <div style={{
+              flex: 1,
+              display: 'grid',
+              gridTemplateColumns: isMobile ? '1fr' : 'var(--sidebar-width) 1fr',
+              overflow: 'hidden',
+              minHeight: 0,
+            }}>
+              <JobsSidebar
+                selectedJobId={filters.jobId}
+                onSelectJob={handleSelectJob}
+                range={filters.range}
+                statusFilter={filters.level}
+                search={filters.search}
+                isMobile={isMobile}
+                mobileOpen={mobileSidebarOpen}
+                onMobileClose={() => setMobileSidebarOpen(false)}
               />
-              <LogStream
-                logs={logs}
-                liveMode={liveMode}
-                loading={loading}
-                page={page}
-                totalPages={totalPages}
-                onPageChange={goToPage}
-                jobId={filters.jobId}
-              />
+              <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <LogFilters
+                  filters={filters}
+                  onFilter={updateFilter}
+                  liveMode={liveMode}
+                  onToggleLive={toggleLive}
+                  onShowJobs={isMobile ? () => setMobileSidebarOpen(true) : undefined}
+                />
+                <LogStream
+                  logs={logs}
+                  liveMode={liveMode}
+                  loading={loading}
+                  page={page}
+                  totalPages={totalPages}
+                  onPageChange={goToPage}
+                  jobId={filters.jobId}
+                  wsConnected={wsConnected}
+                  fetchError={fetchError}
+                />
+              </div>
             </div>
-          </div>
-        } />
-        <Route path="/app"      element={<div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}><AppDashboard onViewJobLogs={handleViewJobLogs} /></div>} />
-        <Route path="/geo"      element={<div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}><GeoDashboard /></div>} />
-        <Route path="/proxy"    element={<div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}><ProxyDashboard /></div>} />
-        <Route path="/errors"   element={<div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}><ErrorsDashboard /></div>} />
-        <Route path="/scrape"   element={<div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}><ScrapeDashboard /></div>} />
-        <Route path="/archives" element={<div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}><ArchivesDashboard /></div>} />
-      </Routes>
+          } />
+          <Route path="/app"      element={<div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}><AppDashboard onViewJobLogs={handleViewJobLogs} /></div>} />
+          <Route path="/geo"      element={<div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}><GeoDashboard /></div>} />
+          <Route path="/proxy"    element={<div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}><ProxyDashboard /></div>} />
+          <Route path="/errors"   element={<div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}><ErrorsDashboard /></div>} />
+          <Route path="/scrape"   element={<div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}><ScrapeDashboard /></div>} />
+          <Route path="/archives" element={<div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}><ArchivesDashboard /></div>} />
+        </Routes>
+      </Suspense>
     </div>
   );
 }
 
-export default function App() {
-  const [authed, setAuthed] = useState(() => !!localStorage.getItem('auth_token'));
-
-  useEffect(() => {
-    function onLogout() { setAuthed(false); }
-    window.addEventListener('auth:logout', onLogout);
-    return () => window.removeEventListener('auth:logout', onLogout);
-  }, []);
-
-  if (!authed) {
-    return <LoginPage onLogin={() => setAuthed(true)} />;
-  }
-
+function AppRouter() {
+  const { authed } = useAuth();
+  if (!authed) return <LoginPage />;
   return (
     <BrowserRouter>
       <Dashboard />
     </BrowserRouter>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppRouter />
+    </AuthProvider>
   );
 }

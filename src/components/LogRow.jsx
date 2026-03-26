@@ -9,9 +9,10 @@ const LEVEL_CONFIG = {
 
 export function LogRow({ log }) {
   const cfg = LEVEL_CONFIG[log.level] || LEVEL_CONFIG.INFO;
-  const ts = log.timestamp
-    ? format(new Date(log.timestamp), 'HH:mm:ss')
-    : '—';
+  let ts = '—';
+  if (log.timestamp) {
+    try { ts = format(new Date(log.timestamp), 'HH:mm:ss'); } catch { /* invalid date */ }
+  }
 
   // Strip asctime — it duplicates the timestamp we already show on the line
   const cleanedMetadata = log.metadata

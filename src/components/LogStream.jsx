@@ -1,17 +1,9 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
+import { Virtuoso } from 'react-virtuoso';
 import { LogRow } from './LogRow.jsx';
+import { PaginationBar } from './PaginationBar.jsx';
 
-export function LogStream({ logs, liveMode, loading, page, totalPages, onPageChange, jobId }) {
-  const bottomRef = useRef(null);
-  const prevLogsLengthRef = useRef(0);
-
-  useEffect(() => {
-    if (liveMode && logs.length === prevLogsLengthRef.current + 1) {
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-    prevLogsLengthRef.current = logs.length;
-  }, [logs, liveMode]);
-
+export function LogStream({ logs, liveMode, loading, page, totalPages, onPageChange, jobId, wsConnected, fetchError }) {
   if (!jobId) {
     return (
       <div style={centeredStyle}>
@@ -33,6 +25,16 @@ export function LogStream({ logs, liveMode, loading, page, totalPages, onPageCha
     );
   }
 
+  if (fetchError) {
+    return (
+      <div style={centeredStyle}>
+        <span style={{ color: 'var(--red)', fontSize: 10, letterSpacing: 1 }}>
+          FETCH ERROR: {fetchError}
+        </span>
+      </div>
+    );
+  }
+
   if (!logs.length) {
     return (
       <div style={centeredStyle}>
@@ -45,42 +47,30 @@ export function LogStream({ logs, liveMode, loading, page, totalPages, onPageCha
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-      <div style={{ flex: 1, overflowY: 'auto' }}>
-        {logs.map((log) => (
-          <LogRow key={log.id} log={log} />
-        ))}
-        <div ref={bottomRef} />
-      </div>
+      {liveMode && !wsConnected && (
+        <div style={{
+          padding: '4px 16px',
+          background: 'var(--red-dim)',
+          borderBottom: '1px solid var(--red)',
+          fontSize: 10,
+          color: 'var(--red)',
+          letterSpacing: 1,
+          flexShrink: 0,
+          textAlign: 'center',
+        }}>
+          WS DISCONNECTED — RECONNECTING...
+        </div>
+      )}
+
+      <Virtuoso
+        style={{ flex: 1 }}
+        data={logs}
+        followOutput={liveMode ? 'smooth' : false}
+        itemContent={(_, log) => <LogRow log={log} />}
+      />
 
       {!liveMode && totalPages > 1 && (
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 10,
-          padding: '8px 16px',
-          borderTop: '1px solid var(--border)',
-          background: 'var(--surface)',
-          flexShrink: 0,
-        }}>
-          <button
-            onClick={() => onPageChange(page - 1)}
-            disabled={page <= 1}
-            style={paginationBtn(page <= 1)}
-          >
-            ‹ PREV
-          </button>
-          <span style={{ color: 'var(--text-muted)', fontSize: 10, letterSpacing: 1 }}>
-            {page} / {totalPages}
-          </span>
-          <button
-            onClick={() => onPageChange(page + 1)}
-            disabled={page >= totalPages}
-            style={paginationBtn(page >= totalPages)}
-          >
-            NEXT ›
-          </button>
-        </div>
+        <PaginationBar page={page} totalPages={totalPages} onPageChange={onPageChange} />
       )}
     </div>
   );
@@ -94,17 +84,3 @@ const centeredStyle = {
   height: '100%',
   gap: 10,
 };
-
-function paginationBtn(disabled) {
-  return {
-    background: 'transparent',
-    border: '1px solid var(--border)',
-    borderRadius: 3,
-    color: disabled ? 'var(--text-muted)' : 'var(--text)',
-    padding: '3px 12px',
-    fontSize: 10,
-    letterSpacing: 1,
-    cursor: disabled ? 'not-allowed' : 'pointer',
-    opacity: disabled ? 0.4 : 1,
-  };
-}

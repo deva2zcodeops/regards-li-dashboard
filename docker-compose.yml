@@ -1,9 +1,10 @@
 services:
 
   dashboard:
-    build: .
+    build:
+      context: .
+      args:
+        VITE_API_URL: ${VITE_API_URL}
     restart: unless-stopped
     ports:
-      - "5173:5173"
-    environment:
-      VITE_API_URL: http://localhost:3002
+      - "5173:80"

@@ -1,9 +1,14 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { format, formatDistanceStrict } from 'date-fns';
 
-import { apiFetch } from '../utils/apiFetch.js';
+import { apiFetch } from '@/utils/apiFetch.js';
+import { useAppStats } from '@/hooks/useAppStats.js';
+import { StatCard } from '@/components/StatCard.jsx';
+import { PaginationBar } from '@/components/PaginationBar.jsx';
+import { DashboardHeader } from '@/components/DashboardHeader.jsx';
+import styles from '@/components/DashboardPage.module.css';
 
-const RANGES = [
+const APP_RANGES = [
   { label: '7D',      value: '7d'  },
   { label: '14D',     value: '14d' },
   { label: '30D',     value: '30d' },
@@ -17,80 +22,34 @@ const STATUS_CONFIG = {
   pending: { color: 'var(--text-muted)', bg: 'transparent', label: 'PENDING', pulse: false },
 };
 
-// ─── Stat Card ────────────────────────────────────────────────
-function StatCard({ label, value, sublabel, accent, info }) {
-  const [tooltipPos, setTooltipPos] = useState(null);
-  return (
-    <div style={{
-      flex: 1,
-      minWidth: 160,
-      background: 'var(--surface)',
-      border: '1px solid var(--border)',
-      borderRadius: 4,
-      padding: '18px 20px',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 6,
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{
-          fontSize: 10,
-          letterSpacing: 1.4,
-          color: 'var(--text-muted)',
-          fontWeight: 500,
-        }}>
-          {label}
-        </span>
-        {info && (
-          <div style={{ flexShrink: 0 }}>
-            <span
-              onMouseEnter={(e) => {
-                const r = e.currentTarget.getBoundingClientRect();
-                setTooltipPos({ top: r.bottom + 6, right: window.innerWidth - r.right });
-              }}
-              onMouseLeave={() => setTooltipPos(null)}
-              style={{
-                width: 14, height: 14, borderRadius: '50%',
-                border: '1px solid var(--text-muted)',
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 8, color: 'var(--text-muted)', cursor: 'default',
-                userSelect: 'none', lineHeight: 1, fontStyle: 'italic', fontWeight: 700,
-              }}
-            >i</span>
-            {tooltipPos && (
-              <div style={{
-                position: 'fixed', top: tooltipPos.top, right: tooltipPos.right,
-                background: 'var(--surface-2)',
-                border: '1px solid var(--border)',
-                borderRadius: 4, padding: '7px 10px',
-                fontSize: 10, color: 'var(--text-muted)',
-                width: 210, zIndex: 9999, lineHeight: 1.6,
-                boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
-                pointerEvents: 'none',
-              }}>
-                {info}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-      <span style={{
-        fontSize: 28,
-        fontWeight: 700,
-        color: accent || 'var(--text)',
-        lineHeight: 1,
-        fontVariantNumeric: 'tabular-nums',
-      }}>
-        {value ?? '—'}
-      </span>
-      {sublabel && (
-        <span style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: 0.5 }}>
-          {sublabel}
-        </span>
-      )}
-    </div>
-  );
+function getDuration(job) {
+  if (job.status !== 'done' && job.status !== 'failed') return '—';
+  try {
+    return formatDistanceStrict(new Date(job.updated_at), new Date(job.created_at));
+  } catch {
+    return '—';
+  }
 }
+
+const thBase = {
+  padding: '8px 14px',
+  textAlign: 'left',
+  fontSize: 9,
+  letterSpacing: 1.4,
+  fontWeight: 600,
+  cursor: 'pointer',
+  userSelect: 'none',
+  whiteSpace: 'nowrap',
+  borderBottom: '1px solid var(--border)',
+};
+
+const tdStyle = {
+  padding: '9px 14px',
+  fontSize: 11,
+  color: 'var(--text)',
+  borderBottom: '1px solid var(--border)',
+  whiteSpace: 'nowrap',
+};
 
 // ─── Status Badge ─────────────────────────────────────────────
 function StatusBadge({ status }) {
@@ -134,7 +93,6 @@ function SortIcon({ col, sort, order }) {
 // ─── Main Component ───────────────────────────────────────────
 export function AppDashboard({ onViewJobLogs }) {
   const [range, setRange]   = useState('7d');
-  const [stats, setStats]   = useState(null);
   const [jobs,  setJobs]    = useState([]);
   const [page,  setPage]    = useState(1);
   const [pages, setPages]   = useState(1);
@@ -143,25 +101,7 @@ export function AppDashboard({ onViewJobLogs }) {
   const [order, setOrder]   = useState('desc');
   const [loading, setLoading] = useState(false);
 
-  const statsIntervalRef = useRef(null);
-
-  // ── Fetch stats ────────────────────────────────────────────
-  const fetchStats = useCallback(async () => {
-    try {
-      const res  = await apiFetch(`/api/stats?range=${range}`);
-      const data = await res.json();
-      setStats(data);
-    } catch (err) {
-      console.error('[AppDashboard] stats fetch error:', err);
-    }
-  }, [range]);
-
-  useEffect(() => {
-    fetchStats();
-    // Re-fetch stats every 15 s to keep "running" count live
-    statsIntervalRef.current = setInterval(fetchStats, 15_000);
-    return () => clearInterval(statsIntervalRef.current);
-  }, [fetchStats]);
+  const stats = useAppStats(range);
 
   // ── Fetch jobs table ───────────────────────────────────────
   const fetchJobs = useCallback(async (targetPage = 1) => {
@@ -202,86 +142,19 @@ export function AppDashboard({ onViewJobLogs }) {
     setPage(1);
   }
 
-  // ── Duration helper ────────────────────────────────────────
-  function getDuration(job) {
-    if (job.status !== 'done' && job.status !== 'failed') return '—';
-    try {
-      return formatDistanceStrict(new Date(job.updated_at), new Date(job.created_at));
-    } catch {
-      return '—';
-    }
+  function thStyle(col) {
+    return { ...thBase, color: sort === col ? 'var(--green)' : 'var(--text-muted)' };
   }
 
-  const thStyle = (col) => ({
-    padding: '8px 14px',
-    textAlign: 'left',
-    fontSize: 9,
-    letterSpacing: 1.4,
-    color: sort === col ? 'var(--green)' : 'var(--text-muted)',
-    fontWeight: 600,
-    cursor: 'pointer',
-    userSelect: 'none',
-    whiteSpace: 'nowrap',
-    borderBottom: '1px solid var(--border)',
-  });
-
-  const tdStyle = {
-    padding: '9px 14px',
-    fontSize: 11,
-    color: 'var(--text)',
-    borderBottom: '1px solid var(--border)',
-    whiteSpace: 'nowrap',
-  };
-
   return (
-    <div style={{
-      flex: 1,
-      minHeight: 0,
-      overflowY: 'auto',
-      padding: '20px 24px',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 20,
-    }}>
+    <div className={styles.page}>
 
-      {/* ── Header row ── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-        <span style={{
-          fontSize: 11,
-          letterSpacing: 1.6,
-          color: 'var(--text-dim)',
-          fontWeight: 600,
-        }}>
-          APP DASHBOARD
-        </span>
-
-        {/* Range selector */}
-        <div style={{ display: 'flex', gap: 4 }}>
-          {RANGES.map((r) => {
-            const active = range === r.value;
-            return (
-              <button
-                key={r.value}
-                onClick={() => { setRange(r.value); setPage(1); }}
-                style={{
-                  padding: '0 12px',
-                  height: 26,
-                  background: active ? 'var(--surface-3)' : 'transparent',
-                  border: `1px solid ${active ? 'var(--text-dim)' : 'var(--border)'}`,
-                  borderRadius: 3,
-                  color: active ? 'var(--text)' : 'var(--text-muted)',
-                  fontSize: 10,
-                  fontWeight: active ? 700 : 400,
-                  letterSpacing: 0.8,
-                  cursor: 'pointer',
-                }}
-              >
-                {r.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <DashboardHeader
+        title="APP DASHBOARD"
+        range={range}
+        onRangeChange={(r) => { setRange(r); setPage(1); }}
+        ranges={APP_RANGES}
+      />
 
       {/* ── Stat cards ── */}
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
@@ -327,7 +200,6 @@ export function AppDashboard({ onViewJobLogs }) {
         borderRadius: 4,
         overflow: 'hidden',
       }}>
-        {/* Table header */}
         <div style={{
           padding: '10px 14px 8px',
           borderBottom: '1px solid var(--border)',
@@ -343,23 +215,16 @@ export function AppDashboard({ onViewJobLogs }) {
           </span>
         </div>
 
-        {/* Table */}
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
                 <th style={thStyle(null)}>JOB ID</th>
                 <th style={thStyle(null)}>USER</th>
-                <th
-                  style={thStyle('started_at')}
-                  onClick={() => handleSort('started_at')}
-                >
+                <th style={thStyle('started_at')} onClick={() => handleSort('started_at')}>
                   STARTED <SortIcon col="started_at" sort={sort} order={order} />
                 </th>
-                <th
-                  style={thStyle('status')}
-                  onClick={() => handleSort('status')}
-                >
+                <th style={thStyle('status')} onClick={() => handleSort('status')}>
                   STATUS <SortIcon col="status" sort={sort} order={order} />
                 </th>
                 <th style={thStyle(null)}>DURATION</th>
@@ -420,9 +285,7 @@ export function AppDashboard({ onViewJobLogs }) {
                     {job.user_id || '—'}
                   </td>
                   <td style={{ ...tdStyle, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
-                    {job.created_at
-                      ? format(new Date(job.created_at), 'MMM d, HH:mm')
-                      : '—'}
+                    {job.created_at ? format(new Date(job.created_at), 'MMM d, HH:mm') : '—'}
                   </td>
                   <td style={tdStyle}>
                     <StatusBadge status={job.status} />
@@ -433,14 +296,15 @@ export function AppDashboard({ onViewJobLogs }) {
                   <td style={{ ...tdStyle, fontVariantNumeric: 'tabular-nums', textAlign: 'center', minWidth: 120 }}>
                     {job.progress > 0 ? job.progress.toLocaleString() : '—'}
                   </td>
-                  <td style={{
-                    ...tdStyle,
-                    color: 'var(--red)',
-                    maxWidth: 280,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    fontSize: 10,
-                  }}
+                  <td
+                    style={{
+                      ...tdStyle,
+                      color: 'var(--red)',
+                      maxWidth: 280,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      fontSize: 10,
+                    }}
                     title={job.error || ''}
                   >
                     {job.error || '—'}
@@ -451,50 +315,10 @@ export function AppDashboard({ onViewJobLogs }) {
           </table>
         </div>
 
-        {/* Pagination */}
         {pages > 1 && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 10,
-            padding: '10px 16px',
-            borderTop: '1px solid var(--border)',
-          }}>
-            <button
-              onClick={() => fetchJobs(page - 1)}
-              disabled={page <= 1}
-              style={paginationBtn(page <= 1)}
-            >
-              ‹ PREV
-            </button>
-            <span style={{ color: 'var(--text-muted)', fontSize: 10, letterSpacing: 1 }}>
-              {page} / {pages}
-            </span>
-            <button
-              onClick={() => fetchJobs(page + 1)}
-              disabled={page >= pages}
-              style={paginationBtn(page >= pages)}
-            >
-              NEXT ›
-            </button>
-          </div>
+          <PaginationBar page={page} totalPages={pages} onPageChange={fetchJobs} />
         )}
       </div>
     </div>
   );
-}
-
-function paginationBtn(disabled) {
-  return {
-    background: 'transparent',
-    border: '1px solid var(--border)',
-    borderRadius: 3,
-    color: disabled ? 'var(--text-muted)' : 'var(--text)',
-    padding: '3px 12px',
-    fontSize: 10,
-    letterSpacing: 1,
-    cursor: disabled ? 'not-allowed' : 'pointer',
-    opacity: disabled ? 0.4 : 1,
-  };
 }

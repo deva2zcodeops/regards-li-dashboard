@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
+import { useAuth } from '@/hooks/useAuth.js';
+import { API_BASE } from '@/utils/apiFetch.js';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-
-export function LoginPage({ onLogin }) {
+export function LoginPage() {
+  const { login } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -24,7 +25,7 @@ export function LoginPage({ onLogin }) {
         return;
       }
       localStorage.setItem('auth_token', data.token);
-      onLogin();
+      login();
     } catch {
       setError('Unable to reach server');
     } finally {
@@ -84,16 +85,7 @@ export function LoginPage({ onLogin }) {
               onChange={(e) => setUsername(e.target.value)}
               autoComplete="username"
               required
-              style={{
-                background: 'var(--bg)',
-                border: '1px solid var(--border)',
-                borderRadius: 3,
-                color: 'var(--text)',
-                fontSize: 12,
-                padding: '8px 10px',
-                outline: 'none',
-                fontFamily: 'inherit',
-              }}
+              style={inputStyle}
             />
           </div>
 
@@ -107,16 +99,7 @@ export function LoginPage({ onLogin }) {
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
               required
-              style={{
-                background: 'var(--bg)',
-                border: '1px solid var(--border)',
-                borderRadius: 3,
-                color: 'var(--text)',
-                fontSize: 12,
-                padding: '8px 10px',
-                outline: 'none',
-                fontFamily: 'inherit',
-              }}
+              style={inputStyle}
             />
           </div>
 
@@ -158,3 +141,14 @@ export function LoginPage({ onLogin }) {
     </div>
   );
 }
+
+const inputStyle = {
+  background: 'var(--bg)',
+  border: '1px solid var(--border)',
+  borderRadius: 3,
+  color: 'var(--text)',
+  fontSize: 12,
+  padding: '8px 10px',
+  outline: 'none',
+  fontFamily: 'inherit',
+};

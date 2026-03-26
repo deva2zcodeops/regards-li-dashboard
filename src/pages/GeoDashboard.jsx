@@ -7,8 +7,11 @@ import {
 } from 'react-simple-maps';
 import countries110m from 'world-atlas/countries-110m.json';
 
-import { apiFetch } from '../utils/apiFetch.js';
-const RANGES   = ['7d', '14d', '30d', 'all'];
+import { apiFetch } from '@/utils/apiFetch.js';
+import { RANGES } from '@/constants.js';
+import { DashboardHeader } from '@/components/DashboardHeader.jsx';
+import { FetchErrorBanner } from '@/components/FetchErrorBanner.jsx';
+import styles from '@/components/DashboardPage.module.css';
 
 // ── Pulsing dot keyframes injected once ──────────────────────────────────────
 
@@ -103,7 +106,6 @@ function WorldMap({ points, total }) {
   const maxCount = points.length > 0 ? Math.max(...points.map((p) => p.count)) : 1;
   const activeRegions = points.length;
   const topCountry = points[0] ?? null;
-  const topCity = null; // populated from parent if needed
 
   return (
     <div style={{ position: 'relative', borderRadius: 6, overflow: 'hidden', border: '1px solid var(--border)' }}>
@@ -375,47 +377,17 @@ export function GeoDashboard() {
   ];
 
   return (
-    <div style={{
-      flex: 1, display: 'flex', flexDirection: 'column',
-      overflow: 'auto', padding: '20px 24px', gap: 20,
-    }}>
+    <div className={styles.page}>
 
-      {/* Title + range */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, flexWrap: 'wrap', gap: 8 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <span style={{ fontSize: 11, letterSpacing: 2, color: 'var(--text)', fontWeight: 700 }}>
-            GEO INTELLIGENCE
-          </span>
-          <span style={{ fontSize: 9, letterSpacing: 1.2, color: 'var(--text-muted)' }}>
-            GLOBAL TRAFFIC DISTRIBUTION &amp; ENDPOINT INTEGRITY
-          </span>
-        </div>
-        <div style={{ display: 'flex', gap: 6 }}>
-          {RANGES.map((r) => (
-            <button key={r} onClick={() => setRange(r)} style={{
-              padding: '4px 12px', fontSize: 10, letterSpacing: 1.2,
-              background: range === r ? 'var(--green-dim)' : 'transparent',
-              border: `1px solid ${range === r ? 'var(--green)' : 'var(--border)'}`,
-              borderRadius: 3,
-              color: range === r ? 'var(--green)' : 'var(--text-dim)',
-              cursor: 'pointer', fontFamily: 'inherit', textTransform: 'uppercase',
-            }}>
-              {r}
-            </button>
-          ))}
-        </div>
-      </div>
+      <DashboardHeader
+        title="GEO INTELLIGENCE"
+        subtitle="GLOBAL TRAFFIC DISTRIBUTION & ENDPOINT INTEGRITY"
+        range={range}
+        onRangeChange={setRange}
+        ranges={RANGES}
+      />
 
-      {/* Error */}
-      {error && (
-        <div style={{
-          padding: '10px 14px', background: 'var(--red-dim)',
-          border: '1px solid var(--red)', borderRadius: 4,
-          color: 'var(--red)', fontSize: 10, letterSpacing: 0.8, flexShrink: 0,
-        }}>
-          FETCH ERROR: {error}
-        </div>
-      )}
+      <FetchErrorBanner error={error} />
 
       {/* Map */}
       <div style={{ flexShrink: 0 }}>

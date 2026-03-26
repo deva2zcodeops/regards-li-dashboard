@@ -1,0 +1,60 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.titles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.title {
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.subtitle {
+  font-size: 9px;
+  letter-spacing: 1.2px;
+  color: var(--text-muted);
+}
+
+/* ── Range picker ── */
+
+.rangePicker {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  padding: 4px 12px;
+  font-size: 10px;
+  letter-spacing: 1.2px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.12s ease, color 0.12s ease;
+}
+
+.btn:hover {
+  border-color: var(--text-muted);
+  color: var(--text);
+}
+
+.activeBtn {
+  composes: btn;
+  background: var(--green-dim);
+  border-color: var(--green);
+  color: var(--green);
+}

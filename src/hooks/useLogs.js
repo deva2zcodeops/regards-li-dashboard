@@ -1,13 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { apiFetch, API_BASE } from '../utils/apiFetch.js';
+import { LOG_BUFFER_MAX } from '../constants.js';
 
 const WS_BASE = API_BASE.replace(/^http/, 'ws');
 
-// When a job_id is selected and the initial WS batch is empty, the drain
-// thread may not have flushed logs to DB yet. Retry the REST endpoint up
-// to RETRY_ATTEMPTS times before giving up.
 const RETRY_ATTEMPTS = 4;
 const RETRY_DELAYS_MS = [500, 1000, 2000, 3000];
+const WS_RECONNECT_DELAY_MS = 3000;
 
 export function useLogs() {
   const [liveMode, setLiveMode] = useState(true);
@@ -18,21 +17,36 @@ export function useLogs() {
     jobId: '',
     search: '',
   });
-  // Static mode pagination
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [wsConnected, setWsConnected] = useState(false);
+  const [fetchError, setFetchError] = useState(null);
 
   const wsRef = useRef(null);
-  const reconnectRef = useRef(null);
+  const generationRef = useRef(0);
   const retryTimersRef = useRef([]);
 
-  // ── WebSocket connection ───────────────────────────────────
+  const disconnectWs = useCallback(() => {
+    generationRef.current += 1; // invalidate all pending retries/reconnects
+    retryTimersRef.current.forEach(clearTimeout);
+    retryTimersRef.current = [];
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+    setWsConnected(false);
+  }, []);
+
+  // connectWs has empty deps — it's a stable reference so it can safely call itself
+  // recursively inside the onclose reconnect handler.
   const connectWs = useCallback((range, jobId) => {
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;
     }
+
+    const generation = generationRef.current;
 
     const params = new URLSearchParams({ range });
     if (jobId) params.set('job_id', jobId);
@@ -42,28 +56,40 @@ export function useLogs() {
     const ws = new WebSocket(`${WS_BASE}/ws/logs?${params}`);
     wsRef.current = ws;
 
+    ws.onopen = () => {
+      if (generationRef.current !== generation) return;
+      setWsConnected(true);
+    };
+
     ws.onmessage = (event) => {
-      const msg = JSON.parse(event.data);
+      if (generationRef.current !== generation) return;
+      let msg;
+      try {
+        msg = JSON.parse(event.data);
+      } catch {
+        return;
+      }
+
       if (msg.type === 'initial') {
         if (msg.logs.length > 0) {
           setLogs(msg.logs);
         } else if (jobId) {
-          // Empty initial batch with a specific job selected — the drain
-          // thread likely hasn't flushed yet. Retry via REST with backoff.
+          // Empty initial batch — drain thread may not have flushed yet. Retry via REST.
           retryTimersRef.current.forEach(clearTimeout);
           retryTimersRef.current = [];
-
           let attempt = 0;
           const retry = async () => {
-            if (attempt >= RETRY_ATTEMPTS) return;
+            if (attempt >= RETRY_ATTEMPTS || generationRef.current !== generation) return;
             const delay = RETRY_DELAYS_MS[attempt++];
             const timer = setTimeout(async () => {
+              if (generationRef.current !== generation) return;
               try {
                 const p = new URLSearchParams({ range, job_id: jobId, limit: '200' });
                 const res = await apiFetch(`/api/logs?${p}`);
                 const data = await res.json();
+                if (generationRef.current !== generation) return;
                 if (data.logs?.length > 0) {
-                  setLogs(data.logs);
+                  setLogs(data.logs || []);
                 } else {
                   retry();
                 }
@@ -76,10 +102,13 @@ export function useLogs() {
           retry();
         }
       } else if (msg.type === 'log') {
-        // Clear any pending retries — live logs are now flowing
+        // Live log arrived — cancel any pending retries
         retryTimersRef.current.forEach(clearTimeout);
         retryTimersRef.current = [];
-        setLogs((prev) => [...prev, msg.log]);
+        setLogs((prev) => {
+          const next = [...prev, msg.log];
+          return next.length > LOG_BUFFER_MAX ? next.slice(-LOG_BUFFER_MAX) : next;
+        });
       }
     };
 
@@ -88,42 +117,42 @@ export function useLogs() {
     };
 
     ws.onclose = () => {
+      if (generationRef.current !== generation) return;
       wsRef.current = null;
+      setWsConnected(false);
+      // Reconnect after backoff — connectWs is stable so this self-reference is safe
+      const timer = setTimeout(() => {
+        if (generationRef.current !== generation) return;
+        connectWs(range, jobId);
+      }, WS_RECONNECT_DELAY_MS);
+      retryTimersRef.current.push(timer);
     };
-  }, []);
+  }, []); // stable — only reads refs and state setters
 
-  const disconnectWs = useCallback(() => {
-    retryTimersRef.current.forEach(clearTimeout);
-    retryTimersRef.current = [];
-    if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
-    }
-  }, []);
-
-  // ── Static fetch ──────────────────────────────────────────
   const fetchLogs = useCallback(async (range, jobId, targetPage = 1) => {
     setLoading(true);
+    setFetchError(null);
     try {
       const params = new URLSearchParams({ range, page: String(targetPage), limit: '50' });
       if (jobId) params.set('job_id', jobId);
 
       const res = await apiFetch(`/api/logs?${params}`);
       const data = await res.json();
-      setLogs(data.logs);
+      setLogs(data.logs || []);
       setPage(data.page);
       setTotalPages(data.pages);
     } catch (err) {
       console.error('[useLogs] fetch error:', err);
+      setFetchError(err.message || 'Fetch failed');
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // ── Mode switching — only re-runs when range or jobId changes ─
   useEffect(() => {
     const { range, jobId } = filters;
     setLogs([]);
+    setFetchError(null);
     if (liveMode) {
       disconnectWs();
       connectWs(range, jobId);
@@ -132,8 +161,7 @@ export function useLogs() {
       fetchLogs(range, jobId, 1);
     }
     return () => disconnectWs();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveMode, filters.range, filters.jobId]);
+  }, [liveMode, filters.range, filters.jobId, connectWs, disconnectWs, fetchLogs]);
 
   const toggleLive = useCallback(() => {
     setLiveMode((m) => !m);
@@ -158,6 +186,7 @@ export function useLogs() {
     totalPages,
     loading,
     goToPage,
-    wsRef,
+    wsConnected,
+    fetchError,
   };
 }

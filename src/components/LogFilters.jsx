@@ -1,8 +1,64 @@
 import React, { useRef } from 'react';
-import { useIsMobile } from '../hooks/useIsMobile.js';
+import { useIsMobile } from '@/hooks/useIsMobile.js';
+import { LOG_RANGES } from '@/constants.js';
 
-const RANGES = ['7d', '14d', '30d'];
 const LEVELS = ['ALL', 'running', 'done', 'failed', 'pending'];
+
+function LiveModeButton({ liveMode, onToggleLive, compact = false }) {
+  return (
+    <button
+      onClick={onToggleLive}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: compact ? 5 : 6,
+        padding: compact ? '0 9px' : '0 12px',
+        height: 26,
+        background: liveMode ? 'var(--green-dim)' : 'transparent',
+        border: `1px solid ${liveMode ? 'var(--green)' : 'var(--border)'}`,
+        borderRadius: 3,
+        color: liveMode ? 'var(--green)' : 'var(--text-muted)',
+        fontSize: 10,
+        fontWeight: 700,
+        letterSpacing: compact ? 1 : 1.2,
+        cursor: 'pointer',
+        fontFamily: 'inherit',
+      }}
+    >
+      <span style={{
+        width: compact ? 5 : 6,
+        height: compact ? 5 : 6,
+        borderRadius: '50%',
+        background: liveMode ? 'var(--green)' : 'var(--text-muted)',
+        animation: liveMode ? 'pulse-dot 1.4s ease-in-out infinite' : 'none',
+        flexShrink: 0,
+      }} />
+      {compact ? 'LIVE' : 'LIVE MODE'}
+    </button>
+  );
+}
+
+function LevelSelect({ value, onChange }) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange('level', e.target.value)}
+      style={{
+        background: 'var(--surface-2)',
+        border: '1px solid var(--border)',
+        borderRadius: 3,
+        color: 'var(--text)',
+        padding: '0 6px',
+        height: 26,
+        fontSize: 10,
+        letterSpacing: 0.8,
+        outline: 'none',
+      }}
+    >
+      {LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
+    </select>
+  );
+}
 
 export function LogFilters({ filters, onFilter, liveMode, onToggleLive, onShowJobs }) {
   const isMobile = useIsMobile();
@@ -50,32 +106,12 @@ export function LogFilters({ filters, onFilter, liveMode, onToggleLive, onShowJo
             </button>
           )}
 
-          <button
-            onClick={onToggleLive}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 5,
-              padding: '0 9px', height: 26,
-              background: liveMode ? 'var(--green-dim)' : 'transparent',
-              border: `1px solid ${liveMode ? 'var(--green)' : 'var(--border)'}`,
-              borderRadius: 3,
-              color: liveMode ? 'var(--green)' : 'var(--text-muted)',
-              fontSize: 10, fontWeight: 700, letterSpacing: 1,
-              cursor: 'pointer', fontFamily: 'inherit',
-            }}
-          >
-            <span style={{
-              width: 5, height: 5, borderRadius: '50%',
-              background: liveMode ? 'var(--green)' : 'var(--text-muted)',
-              animation: liveMode ? 'pulse-dot 1.4s ease-in-out infinite' : 'none',
-              flexShrink: 0,
-            }} />
-            LIVE
-          </button>
+          <LiveModeButton liveMode={liveMode} onToggleLive={onToggleLive} compact />
 
           <div style={{ width: 1, height: 18, background: 'var(--border)', flexShrink: 0 }} />
 
           <div style={{ display: 'flex', gap: 3 }}>
-            {RANGES.map((r) => {
+            {LOG_RANGES.map((r) => {
               const active = filters.range === r;
               return (
                 <button
@@ -106,17 +142,7 @@ export function LogFilters({ filters, onFilter, liveMode, onToggleLive, onShowJo
           display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px',
         }}>
           <span style={{ color: 'var(--text-muted)', fontSize: 10, letterSpacing: 1, whiteSpace: 'nowrap' }}>LVL:</span>
-          <select
-            value={filters.level}
-            onChange={(e) => onFilter('level', e.target.value)}
-            style={{
-              background: 'var(--surface-2)', border: '1px solid var(--border)',
-              borderRadius: 3, color: 'var(--text)', padding: '0 6px',
-              height: 26, fontSize: 10, letterSpacing: 0.8, outline: 'none',
-            }}
-          >
-            {LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
-          </select>
+          <LevelSelect value={filters.level} onChange={onFilter} />
           <input
             type="text"
             placeholder="user_id or job_id"
@@ -148,39 +174,13 @@ export function LogFilters({ filters, onFilter, liveMode, onToggleLive, onShowJo
       flexShrink: 0,
     }}>
 
-      {/* Live mode button */}
-      <button
-        onClick={onToggleLive}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          padding: '0 12px',
-          height: 26,
-          background: liveMode ? 'var(--green-dim)' : 'transparent',
-          border: `1px solid ${liveMode ? 'var(--green)' : 'var(--border)'}`,
-          borderRadius: 3,
-          color: liveMode ? 'var(--green)' : 'var(--text-muted)',
-          fontSize: 10,
-          fontWeight: 700,
-          letterSpacing: 1.2,
-        }}
-      >
-        <span style={{
-          width: 6, height: 6, borderRadius: '50%',
-          background: liveMode ? 'var(--green)' : 'var(--text-muted)',
-          animation: liveMode ? 'pulse-dot 1.4s ease-in-out infinite' : 'none',
-          flexShrink: 0,
-        }} />
-        LIVE MODE
-      </button>
+      <LiveModeButton liveMode={liveMode} onToggleLive={onToggleLive} />
 
-      {/* Divider */}
       <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
 
       {/* Range pills */}
       <div style={{ display: 'flex', gap: 4 }}>
-        {RANGES.map((r) => {
+        {LOG_RANGES.map((r) => {
           const active = filters.range === r;
           return (
             <button
@@ -207,29 +207,12 @@ export function LogFilters({ filters, onFilter, liveMode, onToggleLive, onShowJo
         })}
       </div>
 
-      {/* Divider */}
       <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
 
       {/* Level filter */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <span style={{ color: 'var(--text-muted)', fontSize: 10, letterSpacing: 1 }}>LEVEL:</span>
-        <select
-          value={filters.level}
-          onChange={(e) => onFilter('level', e.target.value)}
-          style={{
-            background: 'var(--surface-2)',
-            border: '1px solid var(--border)',
-            borderRadius: 3,
-            color: 'var(--text)',
-            padding: '0 6px',
-            height: 26,
-            fontSize: 10,
-            letterSpacing: 0.8,
-            outline: 'none',
-          }}
-        >
-          {LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
-        </select>
+        <LevelSelect value={filters.level} onChange={onFilter} />
       </div>
 
       {/* Search by user_id or job_id */}

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
-import { apiFetch } from '../utils/apiFetch.js';
+import { apiFetch } from '@/utils/apiFetch.js';
+import { PaginationBar } from '@/components/PaginationBar.jsx';
+import styles from '@/components/DashboardPage.module.css';
 
 const LEVEL_COLORS = {
   ERROR:   'var(--red)',
@@ -213,6 +215,32 @@ function ViewerModal({ archive, onClose }) {
   );
 }
 
+// ─── Styles ────────────────────────────────────────────────────
+const thStyle = {
+  padding: '8px 14px', textAlign: 'left', fontSize: 9,
+  letterSpacing: 1.4, color: 'var(--text-muted)', fontWeight: 600,
+  borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap',
+};
+const tdStyle = {
+  padding: '9px 14px', fontSize: 11, color: 'var(--text)',
+  borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap',
+};
+const inputStyle = {
+  background: 'var(--surface)', border: '1px solid var(--border)',
+  borderRadius: 3, color: 'var(--text)', fontSize: 11,
+  padding: '5px 10px', fontFamily: 'inherit', outline: 'none', height: 28,
+  colorScheme: 'dark',
+};
+
+function actionBtn(accent) {
+  return {
+    background: 'transparent', border: `1px solid ${accent || 'var(--border)'}`,
+    borderRadius: 3, color: accent || 'var(--text-muted)', fontSize: 9,
+    letterSpacing: 1, padding: '3px 10px', cursor: 'pointer',
+    fontFamily: 'inherit', whiteSpace: 'nowrap',
+  };
+}
+
 // ─── Main ─────────────────────────────────────────────────────
 export function ArchivesDashboard() {
   const [search,  setSearch]  = useState('');
@@ -296,37 +324,11 @@ export function ArchivesDashboard() {
     }
   }
 
-  const hasFilters    = search || from || to;
-  const dateRangeSet  = from && to;
-
-  // ── Styles ─────────────────────────────────────────────────
-  const thStyle = {
-    padding: '8px 14px', textAlign: 'left', fontSize: 9,
-    letterSpacing: 1.4, color: 'var(--text-muted)', fontWeight: 600,
-    borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap',
-  };
-  const tdStyle = {
-    padding: '9px 14px', fontSize: 11, color: 'var(--text)',
-    borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap',
-  };
-  const inputStyle = {
-    background: 'var(--surface)', border: '1px solid var(--border)',
-    borderRadius: 3, color: 'var(--text)', fontSize: 11,
-    padding: '5px 10px', fontFamily: 'inherit', outline: 'none', height: 28,
-    colorScheme: 'dark',
-  };
-  const actionBtn = (accent) => ({
-    background: 'transparent', border: `1px solid ${accent || 'var(--border)'}`,
-    borderRadius: 3, color: accent || 'var(--text-muted)', fontSize: 9,
-    letterSpacing: 1, padding: '3px 10px', cursor: 'pointer',
-    fontFamily: 'inherit', whiteSpace: 'nowrap',
-  });
+  const hasFilters   = search || from || to;
+  const dateRangeSet = from && to;
 
   return (
-    <div style={{
-      flex: 1, minHeight: 0, overflowY: 'auto',
-      padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 20,
-    }}>
+    <div className={styles.page}>
 
       {/* ── Header ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
@@ -514,19 +516,8 @@ export function ArchivesDashboard() {
           </table>
         </div>
 
-        {/* Pagination */}
         {pages > 1 && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '10px 16px', borderTop: '1px solid var(--border)' }}>
-            <button onClick={() => fetchArchives(page - 1)} disabled={page <= 1} style={paginationBtn(page <= 1)}>
-              ‹ PREV
-            </button>
-            <span style={{ color: 'var(--text-muted)', fontSize: 10, letterSpacing: 1 }}>
-              {page} / {pages}
-            </span>
-            <button onClick={() => fetchArchives(page + 1)} disabled={page >= pages} style={paginationBtn(page >= pages)}>
-              NEXT ›
-            </button>
-          </div>
+          <PaginationBar page={page} totalPages={pages} onPageChange={fetchArchives} />
         )}
       </div>
 
@@ -539,13 +530,4 @@ export function ArchivesDashboard() {
       )}
     </div>
   );
-}
-
-function paginationBtn(disabled) {
-  return {
-    background: 'transparent', border: '1px solid var(--border)', borderRadius: 3,
-    color: disabled ? 'var(--text-muted)' : 'var(--text)', padding: '3px 12px',
-    fontSize: 10, letterSpacing: 1, cursor: disabled ? 'not-allowed' : 'pointer',
-    opacity: disabled ? 0.4 : 1,
-  };
 }

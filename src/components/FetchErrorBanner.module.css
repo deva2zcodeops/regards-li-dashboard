@@ -1,0 +1,10 @@
+.banner {
+  padding: 10px 14px;
+  background: var(--red-dim);
+  border: 1px solid var(--red);
+  border-radius: 4px;
+  color: var(--red);
+  font-size: 10px;
+  letter-spacing: 0.8px;
+  flex-shrink: 0;
+}

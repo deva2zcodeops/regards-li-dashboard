@@ -1,7 +1,7 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
 
-import { apiFetch } from '../utils/apiFetch.js';
+import { useJobsList } from '@/hooks/useJobsList.js';
 
 const STATUS_CONFIG = {
   running: { color: 'var(--green)',      symbol: '◉', pulse: true  },
@@ -10,66 +10,23 @@ const STATUS_CONFIG = {
   pending: { color: 'var(--text-muted)', symbol: '◌', pulse: false },
 };
 
-const LIMIT = 15;
-
 export function JobsSidebar({ selectedJobId, onSelectJob, range, statusFilter, search, isMobile, mobileOpen, onMobileClose }) {
-  const [jobs, setJobs]         = useState([]);
-  const [page, setPage]         = useState(1);
-  const [hasMore, setHasMore]   = useState(true);
-  const [loading, setLoading]   = useState(false);
-  const scrollRef               = useRef(null);
-
-  const fetchJobs = useCallback(async (targetPage, replace = false) => {
-    if (loading) return;
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({ range, page: String(targetPage), limit: String(LIMIT) });
-      if (search && search.trim()) params.set('search', search.trim());
-      const res  = await apiFetch(`/api/jobs?${params}`);
-      const data = await res.json();
-      const incoming = data.jobs || [];
-      setJobs((prev) => replace ? incoming : [...prev, ...incoming]);
-      setPage(targetPage);
-      setHasMore(targetPage < (data.pages || 1));
-    } catch (err) {
-      console.error('[JobsSidebar] fetch error:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [range, search, loading]);
-
-  // Reset on range or search change
-  useEffect(() => {
-    setJobs([]);
-    setPage(1);
-    setHasMore(true);
-    fetchJobs(1, true);
-    // Only poll when not actively searching
-    if (!search) {
-      const interval = setInterval(() => fetchJobs(1, true), 15_000);
-      return () => clearInterval(interval);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [range, search]);
-
-  // Infinite scroll
-  const handleScroll = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el || loading || !hasMore) return;
-    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 40) {
-      fetchJobs(page + 1);
-    }
-  }, [loading, hasMore, page, fetchJobs]);
+  const { jobs, loading, hasMore, scrollRef, handleScroll } = useJobsList({ range, search });
 
   const visibleJobs = statusFilter && statusFilter !== 'ALL'
     ? jobs.filter((job) => job.status === statusFilter)
     : jobs;
 
+  // Clear stale selection when the selected job is no longer in the visible list.
   useEffect(() => {
-    if (selectedJobId && !loading && jobs.length > 0 && !visibleJobs.find((j) => j.job_id === selectedJobId)) {
+    if (!selectedJobId || loading || jobs.length === 0) return;
+    const visible = statusFilter && statusFilter !== 'ALL'
+      ? jobs.filter((j) => j.status === statusFilter)
+      : jobs;
+    if (!visible.find((j) => j.job_id === selectedJobId)) {
       onSelectJob('');
     }
-  }, [visibleJobs, selectedJobId, onSelectJob, loading, jobs.length]);
+  }, [jobs, statusFilter, selectedJobId, loading, onSelectJob]);
 
   // ── Shared job list content ────────────────────────────────
   const jobListContent = (
@@ -80,9 +37,9 @@ export function JobsSidebar({ selectedJobId, onSelectJob, range, statusFilter, s
         </div>
       )}
       {visibleJobs.map((job) => {
-        const cfg = STATUS_CONFIG[job.status] || STATUS_CONFIG.pending;
+        const cfg        = STATUS_CONFIG[job.status] || STATUS_CONFIG.pending;
         const isSelected = job.job_id === selectedJobId;
-        const shortId = `job_${job.job_id.slice(0, 8)}...`;
+        const shortId    = `job_${job.job_id.slice(0, 8)}...`;
 
         return (
           <div
@@ -152,54 +109,29 @@ export function JobsSidebar({ selectedJobId, onSelectJob, range, statusFilter, s
     if (!mobileOpen) return null;
     return (
       <>
-        {/* Backdrop */}
         <div
           onClick={onMobileClose}
           style={{
-            position: 'fixed',
-            inset: 0,
-            top: 'var(--header-height)',
-            background: 'rgba(0,0,0,0.6)',
-            zIndex: 40,
+            position: 'fixed', inset: 0, top: 'var(--header-height)',
+            background: 'rgba(0,0,0,0.6)', zIndex: 40,
           }}
         />
-        {/* Drawer */}
         <div style={{
-          position: 'fixed',
-          left: 0,
-          top: 'var(--header-height)',
-          bottom: 0,
-          width: '80vw',
-          maxWidth: 300,
-          background: 'var(--surface)',
-          borderRight: '1px solid var(--border)',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-          zIndex: 50,
+          position: 'fixed', left: 0, top: 'var(--header-height)', bottom: 0,
+          width: '80vw', maxWidth: 300,
+          background: 'var(--surface)', borderRight: '1px solid var(--border)',
+          display: 'flex', flexDirection: 'column', overflow: 'hidden', zIndex: 50,
         }}>
           <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '8px 16px 6px',
-            borderBottom: '1px solid var(--border)',
-            flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '8px 16px 6px', borderBottom: '1px solid var(--border)', flexShrink: 0,
           }}>
-            <span style={{ color: 'var(--text-muted)', fontSize: 10, letterSpacing: 1.5 }}>
-              ACTIVE JOBS
-            </span>
+            <span style={{ color: 'var(--text-muted)', fontSize: 10, letterSpacing: 1.5 }}>ACTIVE JOBS</span>
             <button
               onClick={onMobileClose}
               style={{
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text-dim)',
-                cursor: 'pointer',
-                fontSize: 14,
-                padding: '0 4px',
-                lineHeight: 1,
-                fontFamily: 'inherit',
+                background: 'transparent', border: 'none', color: 'var(--text-dim)',
+                cursor: 'pointer', fontSize: 14, padding: '0 4px', lineHeight: 1, fontFamily: 'inherit',
               }}
             >
               ✕
@@ -214,19 +146,13 @@ export function JobsSidebar({ selectedJobId, onSelectJob, range, statusFilter, s
   // ── Desktop ────────────────────────────────────────────────
   return (
     <div style={{
-      width: 'var(--sidebar-width)',
-      minWidth: 'var(--sidebar-width)',
-      borderRight: '1px solid var(--border)',
-      background: 'var(--surface)',
-      display: 'flex',
-      flexDirection: 'column',
-      overflow: 'hidden',
+      width: 'var(--sidebar-width)', minWidth: 'var(--sidebar-width)',
+      borderRight: '1px solid var(--border)', background: 'var(--surface)',
+      display: 'flex', flexDirection: 'column', overflow: 'hidden',
     }}>
       <div style={{
         padding: '8px 16px 6px',
-        color: 'var(--text-muted)',
-        fontSize: 10,
-        letterSpacing: 1.5,
+        color: 'var(--text-muted)', fontSize: 10, letterSpacing: 1.5,
         borderBottom: '1px solid var(--border)',
       }}>
         ACTIVE JOBS

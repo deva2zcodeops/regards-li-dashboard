@@ -1,98 +1,11 @@
 import React, { useState, useEffect } from 'react';
 
-import { apiFetch } from '../utils/apiFetch.js';
-const RANGES   = ['7d', '14d', '30d', 'all'];
-
-// ── Stat Card ────────────────────────────────────────────────────────────────
-
-function StatCard({ label, value, sublabel, accent, barPct, info }) {
-  const [tooltipPos, setTooltipPos] = useState(null);
-  return (
-    <div style={{
-      flex: 1,
-      minWidth: 140,
-      background: 'var(--surface)',
-      border: '1px solid var(--border)',
-      borderRadius: 4,
-      padding: '16px 18px',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 6,
-      position: 'relative',
-    }}>
-      {/* progress bar backdrop — clipped by its own wrapper, not the card */}
-      {barPct != null && (
-        <div style={{
-          position: 'absolute',
-          left: 0, bottom: 0, top: 0, right: 0,
-          overflow: 'hidden',
-          borderRadius: 4,
-          pointerEvents: 'none',
-        }}>
-          <div style={{
-            position: 'absolute',
-            left: 0, bottom: 0, top: 0,
-            width: `${barPct}%`,
-            background: `${accent || 'var(--green)'}14`,
-            transition: 'width 0.4s ease',
-          }} />
-        </div>
-      )}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: 9, letterSpacing: 1.6, color: 'var(--text-muted)', fontWeight: 600 }}>
-          {label}
-        </span>
-        {info && (
-          <div style={{ flexShrink: 0 }}>
-            <span
-              onMouseEnter={(e) => {
-                const r = e.currentTarget.getBoundingClientRect();
-                setTooltipPos({ top: r.bottom + 6, right: window.innerWidth - r.right });
-              }}
-              onMouseLeave={() => setTooltipPos(null)}
-              style={{
-                width: 14, height: 14, borderRadius: '50%',
-                border: '1px solid var(--text-muted)',
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 8, color: 'var(--text-muted)', cursor: 'default',
-                userSelect: 'none', lineHeight: 1, fontStyle: 'italic', fontWeight: 700,
-              }}
-            >i</span>
-            {tooltipPos && (
-              <div style={{
-                position: 'fixed', top: tooltipPos.top, right: tooltipPos.right,
-                background: 'var(--surface-2)',
-                border: '1px solid var(--border)',
-                borderRadius: 4, padding: '7px 10px',
-                fontSize: 10, color: 'var(--text-muted)',
-                width: 210, zIndex: 9999, lineHeight: 1.6,
-                boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
-                pointerEvents: 'none',
-              }}>
-                {info}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-      <span style={{
-        fontSize: 30,
-        fontWeight: 700,
-        color: accent || 'var(--text)',
-        lineHeight: 1,
-        fontVariantNumeric: 'tabular-nums',
-        letterSpacing: -0.5,
-      }}>
-        {value ?? '—'}
-      </span>
-      {sublabel && (
-        <span style={{ fontSize: 9, color: 'var(--text-muted)', letterSpacing: 0.5 }}>
-          {sublabel}
-        </span>
-      )}
-    </div>
-  );
-}
+import { apiFetch } from '@/utils/apiFetch.js';
+import { StatCard } from '@/components/StatCard.jsx';
+import { RANGES } from '@/constants.js';
+import { DashboardHeader } from '@/components/DashboardHeader.jsx';
+import { FetchErrorBanner } from '@/components/FetchErrorBanner.jsx';
+import styles from '@/components/DashboardPage.module.css';
 
 // ── Match Level Badge ────────────────────────────────────────────────────────
 
@@ -352,47 +265,17 @@ export function ProxyDashboard() {
   const lvl = data?.levels;
 
   return (
-    <div style={{
-      flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column',
-      overflowY: 'auto', padding: '20px 24px', gap: 20,
-    }}>
+    <div className={styles.page}>
 
-      {/* Title + range */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, flexWrap: 'wrap', gap: 8 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <span style={{ fontSize: 11, letterSpacing: 2, color: 'var(--text)', fontWeight: 700 }}>
-            PROXY PERFORMANCE
-          </span>
-          <span style={{ fontSize: 9, letterSpacing: 1.2, color: 'var(--text-muted)' }}>
-            SOAX GEO-MATCHING COVERAGE &amp; VERIFICATION
-          </span>
-        </div>
-        <div style={{ display: 'flex', gap: 6 }}>
-          {RANGES.map((r) => (
-            <button key={r} onClick={() => setRange(r)} style={{
-              padding: '4px 12px', fontSize: 10, letterSpacing: 1.2,
-              background: range === r ? 'var(--green-dim)' : 'transparent',
-              border: `1px solid ${range === r ? 'var(--green)' : 'var(--border)'}`,
-              borderRadius: 3,
-              color: range === r ? 'var(--green)' : 'var(--text-dim)',
-              cursor: 'pointer', fontFamily: 'inherit', textTransform: 'uppercase',
-            }}>
-              {r}
-            </button>
-          ))}
-        </div>
-      </div>
+      <DashboardHeader
+        title="PROXY PERFORMANCE"
+        subtitle="SOAX GEO-MATCHING COVERAGE & VERIFICATION"
+        range={range}
+        onRangeChange={setRange}
+        ranges={RANGES}
+      />
 
-      {/* Error */}
-      {error && (
-        <div style={{
-          padding: '10px 14px', background: 'var(--red-dim)',
-          border: '1px solid var(--red)', borderRadius: 4,
-          color: 'var(--red)', fontSize: 10, letterSpacing: 0.8, flexShrink: 0,
-        }}>
-          FETCH ERROR: {error}
-        </div>
-      )}
+      <FetchErrorBanner error={error} />
 
       {/* Stat cards */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', flexShrink: 0 }}>
