@@ -3,7 +3,7 @@ import { Virtuoso } from 'react-virtuoso';
 import { LogRow } from './LogRow.jsx';
 import { PaginationBar } from './PaginationBar.jsx';
 
-export function LogStream({ logs, liveMode, loading, page, totalPages, onPageChange, jobId, wsConnected, fetchError }) {
+export function LogStream({ logs, liveMode, loading, page, totalPages, onPageChange, jobId, wsConnected, fetchError, isArchived }) {
   if (!jobId) {
     return (
       <div style={centeredStyle}>
@@ -39,7 +39,7 @@ export function LogStream({ logs, liveMode, loading, page, totalPages, onPageCha
     return (
       <div style={centeredStyle}>
         <span style={{ color: 'var(--text-muted)', fontSize: 11, letterSpacing: 1 }}>
-          {liveMode ? 'WAITING FOR LOGS...' : 'NO LOGS FOUND'}
+          NO LOGS FOUND
         </span>
       </div>
     );
@@ -47,6 +47,20 @@ export function LogStream({ logs, liveMode, loading, page, totalPages, onPageCha
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+      {isArchived && (
+        <div style={{
+          padding: '4px 16px',
+          background: 'var(--surface-2)',
+          borderBottom: '1px solid var(--border)',
+          fontSize: 10,
+          color: 'var(--text-dim)',
+          letterSpacing: 1,
+          flexShrink: 0,
+          textAlign: 'center',
+        }}>
+          ARCHIVED LOGS — RETRIEVED FROM S3
+        </div>
+      )}
       {liveMode && !wsConnected && (
         <div style={{
           padding: '4px 16px',

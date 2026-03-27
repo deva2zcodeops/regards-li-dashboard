@@ -4,13 +4,12 @@ import { LOG_BUFFER_MAX } from '../constants.js';
 
 const WS_BASE = API_BASE.replace(/^http/, 'ws');
 
-const RETRY_ATTEMPTS = 4;
-const RETRY_DELAYS_MS = [500, 1000, 2000, 3000];
 const WS_RECONNECT_DELAY_MS = 3000;
 
 export function useLogs() {
   const [liveMode, setLiveMode] = useState(true);
   const [logs, setLogs] = useState([]);
+  const [isArchived, setIsArchived] = useState(false);
   const [filters, setFilters] = useState({
     range: '7d',
     level: 'ALL',
@@ -74,32 +73,20 @@ export function useLogs() {
         if (msg.logs.length > 0) {
           setLogs(msg.logs);
         } else if (jobId) {
-          // Empty initial batch — drain thread may not have flushed yet. Retry via REST.
-          retryTimersRef.current.forEach(clearTimeout);
-          retryTimersRef.current = [];
-          let attempt = 0;
-          const retry = async () => {
-            if (attempt >= RETRY_ATTEMPTS || generationRef.current !== generation) return;
-            const delay = RETRY_DELAYS_MS[attempt++];
-            const timer = setTimeout(async () => {
-              if (generationRef.current !== generation) return;
-              try {
-                const p = new URLSearchParams({ range, job_id: jobId, limit: '200' });
-                const res = await apiFetch(`/api/logs?${p}`);
-                const data = await res.json();
+          // Empty initial batch — check archive directly
+          (async () => {
+            try {
+              const archiveRes = await apiFetch(`/api/archives/${jobId}/view`);
+              if (archiveRes.ok) {
+                const archiveData = await archiveRes.json();
                 if (generationRef.current !== generation) return;
-                if (data.logs?.length > 0) {
-                  setLogs(data.logs || []);
-                } else {
-                  retry();
+                if (archiveData.logs?.length > 0) {
+                  setLogs(archiveData.logs);
+                  setIsArchived(true);
                 }
-              } catch {
-                retry();
               }
-            }, delay);
-            retryTimersRef.current.push(timer);
-          };
-          retry();
+            } catch { /* no archive — leave empty */ }
+          })();
         }
       } else if (msg.type === 'log') {
         // Live log arrived — cancel any pending retries
@@ -132,12 +119,29 @@ export function useLogs() {
   const fetchLogs = useCallback(async (range, jobId, targetPage = 1) => {
     setLoading(true);
     setFetchError(null);
+    setIsArchived(false);
     try {
       const params = new URLSearchParams({ range, page: String(targetPage), limit: '50' });
       if (jobId) params.set('job_id', jobId);
 
       const res = await apiFetch(`/api/logs?${params}`);
       const data = await res.json();
+
+      if (!data.logs?.length && jobId && targetPage === 1) {
+        // No DB logs — fall back to archive
+        try {
+          const archiveRes = await apiFetch(`/api/archives/${jobId}/view`);
+          if (archiveRes.ok) {
+            const archiveData = await archiveRes.json();
+            if (archiveData.logs?.length > 0) {
+              setLogs(archiveData.logs);
+              setIsArchived(true);
+              return;
+            }
+          }
+        } catch { /* archive not found — fall through */ }
+      }
+
       setLogs(data.logs || []);
       setPage(data.page);
       setTotalPages(data.pages);
@@ -152,6 +156,7 @@ export function useLogs() {
   useEffect(() => {
     const { range, jobId } = filters;
     setLogs([]);
+    setIsArchived(false);
     setFetchError(null);
     if (liveMode) {
       disconnectWs();
@@ -178,6 +183,7 @@ export function useLogs() {
 
   return {
     logs,
+    isArchived,
     liveMode,
     toggleLive,
     filters,

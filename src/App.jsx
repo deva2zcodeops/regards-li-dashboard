@@ -64,6 +64,7 @@ function Dashboard() {
     goToPage,
     wsConnected,
     fetchError,
+    isArchived,
   } = useLogs();
 
   const handleSelectJob = useCallback(
@@ -286,6 +287,7 @@ function Dashboard() {
                   jobId={filters.jobId}
                   wsConnected={wsConnected}
                   fetchError={fetchError}
+                  isArchived={isArchived}
                 />
               </div>
             </div>
